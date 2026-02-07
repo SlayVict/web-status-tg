@@ -26,8 +26,8 @@ def format_results(results: list[UrlStatus], errors_only: bool = False) -> str:
         if r.ok:
             lines.append(f"• {r.url} — OK ({r.status_code})")
         else:
-            msg = r.error or f"HTTP {r.status_code}"
-            lines.append(f"• {r.url} — Error: {msg}")
+            # msg = r.error or f"HTTP {r.status_code}"
+            lines.append(f"• {r.url} — Error")
     return "\n".join(lines) if lines else ""
 
 
