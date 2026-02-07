@@ -27,11 +27,17 @@ class UrlStatus:
 def _normalize_url(url: str) -> str:
     """
     Ensure the URL has a scheme so that requests can handle it.
+    Strips angle brackets if present (e.g. "<example.com>" → "http://example.com").
 
     Example:
         "example.com" -> "http://example.com"
+        "<example.com>" -> "http://example.com"
     """
     url = url.strip()
+    # Remove surrounding angle brackets if present
+    if url.startswith("<") and url.endswith(">"):
+        url = url[1:-1].strip()
+
     if not url:
         return url
 
