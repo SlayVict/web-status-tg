@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
+from telegrinder.types import LinkPreviewOptions
 
 from src.ping import UrlStatus, check_urls
 from src.storage import (
@@ -42,7 +43,7 @@ async def scheduled_check(api: API) -> None:
         if not text:
             continue
         try:
-            await api.send_message(chat_id=chat_id, text=f"Status check (errors):\n{text}")
+            await api.send_message(chat_id=chat_id, text=f"Status check (errors):\n{text}", link_preview_options=LinkPreviewOptions(is_disabled=True))
         except Exception:
             pass
 
@@ -92,9 +93,9 @@ async def cmd_add(message: Message, url: str) -> None:
     chat_id = message.chat.id
     normalized = add_site(chat_id, url)
     if not normalized:
-        await message.answer("Please provide a non-empty URL.")
+        await message.answer("Please provide a non-empty URL.", link_preview_options=LinkPreviewOptions(is_disabled=True))
         return
-    await message.answer(f"Added: {normalized}")
+    await message.answer(f"Added: {normalized}", link_preview_options=LinkPreviewOptions(is_disabled=True))
 
 
 @bot.on.message(Command("remove", Argument("url"), ignore_case=True))
@@ -115,7 +116,7 @@ async def cmd_list(message: Message) -> None:
         await message.answer("No websites in your list. Use /add <url> to add one.")
         return
     lines = ["Your websites:"] + [f"• {u}" for u in sites]
-    await message.answer("\n".join(lines))
+    await message.answer("\n".join(lines), link_preview_options=LinkPreviewOptions(is_disabled=True))
 
 
 @bot.on.message(Text("/check"))
@@ -128,7 +129,7 @@ async def cmd_check(message: Message) -> None:
     await message.answer("Checking…")
     results = check_urls(sites)
     text = format_results(results, errors_only=False)
-    await message.answer(f"Status check:\n{text}")
+    await message.answer(f"Status check:\n{text}", link_preview_options=LinkPreviewOptions(is_disabled=True))
 
 
 def main() -> None:
