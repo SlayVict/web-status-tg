@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+from enum import Enum
 import json
 from pathlib import Path
 from typing import List
 
 from src.ping import _normalize_url
 
+import re
+
 # Keep data.json at project root (parent of src)
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FILE = BASE_DIR / "data.json"
+
+
+class ChatState(Enum):
+    DEFAULT = "default"
+    ADD = "add"
+    REMOVE = "remove"
 
 
 def _load_raw() -> dict:
@@ -30,58 +39,78 @@ def _save_raw(data: dict) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def _chats_key() -> str:
-    return "chats"
-
-
 def get_sites(chat_id: int) -> List[str]:
     """Return the list of sites for a chat. Each chat has its own list."""
     data = _load_raw()
-    chats = data.get(_chats_key(), {})
+    chats = data.get("chats", {})
     sites = chats.get(str(chat_id), [])
     return list(dict.fromkeys(sites)) if isinstance(sites, list) else []
 
+def add_site(chat_id: int, url: str) -> list[str]:
+    """Add one or more URLs to the chat's site list. Accepts URLs separated by spaces or newlines.
+    Returns list of normalized URLs added (empty if none valid).
+    """
+    # Split url on whitespace (spaces and newlines)
+    url_list = re.split(r"[\s\n]+", url.strip())
+    norm_urls = []
+    for part in url_list:
+        norm = _normalize_url(part)
+        if not norm:
+            continue
+        norm_urls.append(norm)
 
-def add_site(chat_id: int, url: str) -> str:
-    """Add a URL to the chat's site list. Returns normalized URL or empty string."""
-    norm = _normalize_url(url)
-    if not norm:
-        return ""
+    if not norm_urls:
+        return []
 
     data = _load_raw()
-    chats = data.setdefault(_chats_key(), {})
+    chats = data.setdefault("chats", {})
     sites = chats.setdefault(str(chat_id), [])
-    if not isinstance(sites, list):
-        sites = []
-        chats[str(chat_id)] = sites
-    if norm not in sites:
-        sites.append(norm)
+    for norm in norm_urls:
+        if norm not in sites:
+            sites.append(norm)
     _save_raw(data)
-    return norm
+    return norm_urls
 
 
 def remove_site(chat_id: int, url: str) -> bool:
-    """Remove a URL from the chat's site list. Returns True if removed."""
-    norm = _normalize_url(url)
-    if not norm:
+    """
+    Remove one or more URLs from the chat's site list.
+    Accepts URLs separated by spaces or newlines.
+    Returns True if at least one URL was removed.
+    """
+    # Split url on whitespace (spaces and newlines)
+    url_list = re.split(r"[\s\n]+", url.strip())
+    norm_urls = []
+    for part in url_list:
+        norm = _normalize_url(part)
+        if norm:
+            norm_urls.append(norm)
+    if not norm_urls:
         return False
 
     data = _load_raw()
-    chats = data.get(_chats_key(), {})
+    chats = data.get("chats", {})
     sites = chats.get(str(chat_id), [])
-    if not isinstance(sites, list) or norm not in sites:
+    if not isinstance(sites, list):
         return False
-    sites.remove(norm)
-    if not sites:
-        del chats[str(chat_id)]
-    _save_raw(data)
-    return True
+
+    removed = False
+    for norm in norm_urls:
+        if norm in sites:
+            sites.remove(norm)
+            removed = True
+
+    if removed:
+        if not sites:
+            del chats[str(chat_id)]
+        _save_raw(data)
+    return removed
 
 
 def get_chat_ids_with_sites() -> List[int]:
     """Return all chat IDs that have at least one site (for scheduled checks)."""
     data = _load_raw()
-    chats = data.get(_chats_key(), {})
+    chats = data.get("chats", {})
     return [
         int(cid)
         for cid, sites in chats.items()
@@ -89,10 +118,40 @@ def get_chat_ids_with_sites() -> List[int]:
         and all(isinstance(u, str) for u in sites)
     ]
 
+def get_state(chat_id: int) -> ChatState:
+    """Get chat state from storage. Returns DEFAULT if not set or unknown."""
+    data = _load_raw()
+    states = data.get("states", {})
+    raw = states.get(str(chat_id))
+    if raw is None:
+        return ChatState.DEFAULT
+    try:
+        return ChatState(raw)
+    except ValueError:
+        return ChatState.DEFAULT
+
+def set_state(chat_id: int, state: ChatState) -> None:
+    """
+    Save chat state in storage. When state is DEFAULT, remove chat from states.
+    """
+    data = _load_raw()
+    states = data.setdefault("states", {})
+
+    if state is ChatState.DEFAULT:
+        states.pop(str(chat_id), None)
+    else:
+        states[str(chat_id)] = state.value
+
+    if not states:
+        data.pop("states", None)
+    _save_raw(data)
 
 __all__ = [
+    "ChatState",
     "get_sites",
     "add_site",
     "remove_site",
     "get_chat_ids_with_sites",
+    "get_state",
+    "set_state",
 ]

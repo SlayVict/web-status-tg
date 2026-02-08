@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-
-from telegrinder import API, Message, Telegrinder, Token
+from telegrinder import API, ABCRule, Context, Message, Telegrinder, Token
 from telegrinder.rules import Argument, Command, Text
 from telegrinder.types import BotCommand, LinkPreviewOptions
 
@@ -13,6 +12,9 @@ from src.storage import (
     get_chat_ids_with_sites,
     get_sites,
     remove_site,
+    get_state,
+    set_state,
+    ChatState,
 )
 
 
@@ -58,6 +60,20 @@ BOT_COMMANDS = [
 ]
 
 
+class IsStateMessage(ABCRule):
+    def __init__(self, state: ChatState):
+        self.state = state
+
+    async def check(self, message: Message, ctx: Context):
+        if message.text.unwrap_or("").startswith("/"):
+            return False
+        state = get_state(message.chat.id)
+        if state == self.state:
+            return True
+        return False
+
+
+
 async def setup_commands_and_scheduler(api: API, interval_minutes: int = 15) -> None:
     """Set bot menu commands (for Telegram UI), then run the scheduler."""
     await api.set_my_commands(commands=BOT_COMMANDS)
@@ -86,8 +102,17 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
     api = API(token=Token(token))
     bot = Telegrinder(api)
 
-    @bot.on.message(Text("/start"))
+    @bot.on.message(IsStateMessage(ChatState.ADD))
+    async def add_url_state(message: Message) -> None:
+        await cmd_add(message, message.text.unwrap())
+
+    @bot.on.message(IsStateMessage(ChatState.REMOVE))
+    async def remove_url_state(message: Message) -> None:
+        await cmd_remove(message, message.text.unwrap())
+
+    @bot.on.message(Command("start"))
     async def cmd_start(message: Message) -> None:
+        set_state(message.chat.id, ChatState.DEFAULT)
         await message.answer(
             "Hello! I monitor your website list and can run scheduled checks.\n\n"
             "Commands (your list is per-chat):\n"
@@ -103,25 +128,36 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         normalized = add_site(chat_id, url)
         if not normalized:
             await message.answer(
-                "Please provide a non-empty URL.",
+                "Please provide URL:",
                 link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
+            set_state(chat_id, ChatState.ADD)
             return
         await message.answer(
             f"Added: {normalized}",
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
+        set_state(message.chat.id, ChatState.DEFAULT)
+
 
     @bot.on.message(Command("remove", Argument("url"), ignore_case=True))
     async def cmd_remove(message: Message, url: str) -> None:
         chat_id = message.chat.id
+        if not url or not url.strip():
+            await message.answer(
+                "Please provide URL(s) to remove:",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+            set_state(chat_id, ChatState.REMOVE)
+            return
         ok = remove_site(chat_id, url)
         if ok:
             await message.answer("Removed from your list.")
         else:
             await message.answer("URL not found in your list. Use /list to see current sites.")
+        set_state(chat_id, ChatState.DEFAULT)
 
-    @bot.on.message(Text("/list"))
+    @bot.on.message(Command("list"))
     async def cmd_list(message: Message) -> None:
         chat_id = message.chat.id
         sites = get_sites(chat_id)
@@ -133,8 +169,9 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
             "\n".join(lines),
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
+        set_state(chat_id, ChatState.DEFAULT)
 
-    @bot.on.message(Text("/check"))
+    @bot.on.message(Command("check"))
     async def cmd_check(message: Message) -> None:
         chat_id = message.chat.id
         sites = get_sites(chat_id)
@@ -148,6 +185,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
             f"Status check:\n{text}",
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
+        set_state(chat_id, ChatState.DEFAULT)
 
     return api, bot
 
