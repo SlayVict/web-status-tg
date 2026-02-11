@@ -39,6 +39,21 @@ def _save_raw(data: dict) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _strip_scheme(url: str) -> str:
+    """
+    Helper to compare URLs ignoring scheme.
+
+    Examples:
+        "http://example.com"  -> "example.com"
+        "https://example.com" -> "example.com"
+        "example.com"         -> "example.com"
+    """
+    for prefix in ("http://", "https://"):
+        if url.startswith(prefix):
+            return url[len(prefix) :]
+    return url
+
+
 def get_sites(chat_id: int) -> List[str]:
     """Return the list of sites for a chat. Each chat has its own list."""
     data = _load_raw()
@@ -80,7 +95,7 @@ def remove_site(chat_id: int, url: str) -> bool:
     """
     # Split url on whitespace (spaces and newlines)
     url_list = re.split(r"[\s\n]+", url.strip())
-    norm_urls = []
+    norm_urls: list[str] = []
     for part in url_list:
         norm = _normalize_url(part)
         if norm:
@@ -94,11 +109,19 @@ def remove_site(chat_id: int, url: str) -> bool:
     if not isinstance(sites, list):
         return False
 
-    removed = False
-    for norm in norm_urls:
-        if norm in sites:
-            sites.remove(norm)
-            removed = True
+    # Match URLs either exactly or by hostname/path ignoring scheme so that:
+    # - adding "https://example.com" can be removed by "example.com"
+    # - adding "example.com" can be removed by "https://example.com"
+    targets_no_scheme = {_strip_scheme(u) for u in norm_urls}
+
+    original_len = len(sites)
+    sites[:] = [
+        existing
+        for existing in sites
+        if existing not in norm_urls
+        and _strip_scheme(existing) not in targets_no_scheme
+    ]
+    removed = len(sites) != original_len
 
     if removed:
         if not sites:
