@@ -5,7 +5,6 @@ services:
     build: .
     container_name: web-status-bot
     restart: unless-stopped
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    env_file: "webapp.env"
     volumes:
       - ./data.json:/app/data.json
