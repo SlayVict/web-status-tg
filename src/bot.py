@@ -2,20 +2,29 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from telegrinder import API, ABCRule, CallbackQuery, Context, Message, Telegrinder, Token
+
+from telegrinder import (
+    API,
+    ABCRule,
+    CallbackQuery,
+    Context,
+    Message,
+    Telegrinder,
+    Token,
+)
 from telegrinder.rules import Argument, CallbackDataEq, Command, Text
-from telegrinder.tools.keyboard import InlineKeyboard, InlineButton, RowButtons
+from telegrinder.tools.keyboard import InlineButton, InlineKeyboard, RowButtons
 from telegrinder.types import BotCommand, LinkPreviewOptions
 
 from src.ping import UrlStatus, check_urls
 from src.storage import (
+    ChatState,
     add_site,
     get_chat_ids_with_sites,
     get_sites,
-    remove_site,
     get_state,
+    remove_site,
     set_state,
-    ChatState,
 )
 
 
@@ -97,7 +106,6 @@ class IsStateMessage(ABCRule):
         return False
 
 
-
 async def setup_commands_and_scheduler(api: API, interval_minutes: int = 15) -> None:
     """Set bot menu commands (for Telegram UI), then run the scheduler."""
     await api.set_my_commands(commands=BOT_COMMANDS)
@@ -144,6 +152,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
             "/remove <url> — remove a website\n"
             "/list — show your websites\n"
             "/check — check all your websites now and show results",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.DEFAULT),
         )
 
@@ -166,7 +175,6 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         )
         set_state(message.chat.id, ChatState.DEFAULT)
 
-
     @bot.on.message(Command("remove", Argument("url"), ignore_case=True))
     async def cmd_remove(message: Message, url: str) -> None:
         chat_id = message.chat.id
@@ -182,11 +190,13 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         if ok:
             await message.answer(
                 "Removed from your list.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
         else:
             await message.answer(
                 "URL not found in your list. Use /list to see current sites.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
         set_state(chat_id, ChatState.DEFAULT)
@@ -198,6 +208,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         if not sites:
             await message.answer(
                 "No websites in your list. Use /add <url> to add one.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
             return
@@ -216,11 +227,13 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         if not sites:
             await message.answer(
                 "No websites in your list. Use /add <url> to add one.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
             return
         await message.answer(
             "Checking…",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.DEFAULT),
         )
         results = check_urls(sites)
@@ -239,6 +252,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         set_state(chat_id, ChatState.ADD)
         await cq.edit_text(
             "Please provide URL:",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.ADD),
         )
 
@@ -249,6 +263,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         set_state(chat_id, ChatState.REMOVE)
         await cq.edit_text(
             "Please provide URL(s) to remove:",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.REMOVE),
         )
 
@@ -258,6 +273,7 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         set_state(cq.chat.unwrap().id, ChatState.DEFAULT)
         await cq.edit_text(
             "Choose an action:",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.DEFAULT),
         )
 
@@ -270,12 +286,14 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         if not sites:
             await cq.edit_text(
                 "No websites in your list. Use /add <url> or Add to add one.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
             return
         lines = ["Your websites:"] + [f"• {u}" for u in sites]
         await cq.edit_text(
             "\n".join(lines),
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.DEFAULT),
         )
 
@@ -288,11 +306,13 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         if not sites:
             await cq.edit_text(
                 "No websites in your list. Use /add <url> or Add to add one.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_keyboard_markup(ChatState.DEFAULT),
             )
             return
         await cq.edit_text(
             "Checking…",
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=get_keyboard_markup(ChatState.DEFAULT),
         )
         results = check_urls(sites)
@@ -304,4 +324,3 @@ def create_bot(token: str) -> tuple[API, Telegrinder]:
         )
 
     return api, bot
-
