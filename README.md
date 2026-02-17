@@ -45,4 +45,4 @@ URLs are normalized (e.g. `example.com` → `http://example.com`).
 
 ## Data
 
-Site lists are stored in `data.json` in the project root (per-chat under a `chats` key). Keep this file safe if you rely on it.
+Site lists are stored in `data/data.json` (per-chat under a `chats` key). Keep this file safe if you rely on it.

@@ -9,9 +9,9 @@ from src.ping import _normalize_url
 
 import re
 
-# Keep data.json at project root (parent of src)
+# Keep data in data/ subdir (parent of src); allows Docker to mount ./data as a dir
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_FILE = BASE_DIR / "data.json"
+DATA_FILE = BASE_DIR / "data" / "data.json"
 
 
 class ChatState(Enum):

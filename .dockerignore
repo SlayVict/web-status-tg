@@ -9,6 +9,8 @@ wheels/
 # Virtual environments
 .venv
 .env
+webapp.env
 
 # Data files
 data.json
+data/

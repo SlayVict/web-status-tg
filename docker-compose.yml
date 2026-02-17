@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   bot:
     build: .
@@ -7,4 +5,4 @@ services:
     restart: unless-stopped
     env_file: "webapp.env"
     volumes:
-      - ./data.json:/app/data.json
+      - ./data:/app/data
