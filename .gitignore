@@ -13,3 +13,6 @@ wheels/
 # Data files
 data.json
 data/
+
+#uv
+uv.lock
