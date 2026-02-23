@@ -6,11 +6,11 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml ./
 
 # Use uv as the package manager for speed and to match local env
 RUN pip install --upgrade pip && pip install uv
-RUN uv sync --no-dev --frozen
+RUN uv sync --no-dev
 
 COPY . .
 
